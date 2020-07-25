@@ -46,13 +46,37 @@ mongoClient.connect((err, client) => {
                 return;
             }
             let userId = result[0].userId;
+            userId = 1;
 
             switch(method){
                 case "getMessages":
-                    res.send(JSON.stringify({userId: userId}));
-                    return;
-                case "getMessage":
-                    res.send(JSON.stringify({userId: userId}));
+                    if(req.query.userId == undefined){
+                        res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле userId"}));
+                    }
+                    else{
+                        let limit = 25;
+                        let offset = 0;
+                        if(req.query.limit != undefined){
+                            limit = +req.query.limit;
+                            if(limit <= 0){
+                                res.status(405).send(JSON.stringify({err: "Недопустимое значение поля limit"}));
+                                return;
+                            }
+                        }
+                        if(req.query.offset != undefined){
+                            offset = +req.query.offset;
+                            if(offset <= 0){
+                                res.status(405).send(JSON.stringify({err: "Недопустимое значение поля offset"}));
+                                return;
+                            }
+                        }
+                        messagesDB.find({
+                            fromId: {$in: [userId.toString(), req.query.userId]}, 
+                            toId: {$in: [req.query.userId, userId.toString()]}
+                        }, {_id: 0}).skip(offset).limit(limit).toArray((err, result) => {
+                            res.send(JSON.stringify({messages: result})); 
+                        });
+                    }
                     return;
                 case "getDialoges":
                     res.send(JSON.stringify({userId: userId}));
