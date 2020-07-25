@@ -42,7 +42,7 @@ mongoClient.connect((err, client) => {
             res.status(403).send(JSON.stringify({err: "Требуется токен"}));
         }
         else{
-            if(false){
+            if(checkToken(token, tokensDB) == false){
                 res.status(403).send(JSON.stringify({err: "Неверный токен"}));
             }
         }
