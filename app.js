@@ -46,10 +46,9 @@ mongoClient.connect((err, client) => {
                 return;
             }
             let userId = result[0].userId;
-            userId = 1;
 
             switch(method){
-                case "getMessages":
+                case "get":
                     if(req.query.userId == undefined){
                         res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле userId"}));
                     }
@@ -59,14 +58,14 @@ mongoClient.connect((err, client) => {
                         if(req.query.limit != undefined){
                             limit = +req.query.limit;
                             if(limit <= 0){
-                                res.status(405).send(JSON.stringify({err: "Недопустимое значение поля limit"}));
+                                res.status(406).send(JSON.stringify({err: "Недопустимое значение поля limit"}));
                                 return;
                             }
                         }
                         if(req.query.offset != undefined){
                             offset = +req.query.offset;
                             if(offset <= 0){
-                                res.status(405).send(JSON.stringify({err: "Недопустимое значение поля offset"}));
+                                res.status(406).send(JSON.stringify({err: "Недопустимое значение поля offset"}));
                                 return;
                             }
                         }
@@ -78,8 +77,29 @@ mongoClient.connect((err, client) => {
                         });
                     }
                     return;
-                case "getDialoges":
-                    res.send(JSON.stringify({userId: userId}));
+                case "send":
+                    if(req.query.userId == undefined){
+                        res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле userId"}));
+                        return;
+                    }
+                    if(req.query.text == undefined){
+                        res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле text"}));
+                        return;
+                    }
+                    else if(req.query.text.length > 8192){
+                        res.status(403).send(JSON.stringify({err: "Ограничение текста 8192 символа"}));
+                        return;
+                    }
+                    messagesDB.insertOne({
+                        text: req.query.text, 
+                        fromId: userId, 
+                        toId: req.query.userId
+                    }, (err, result) => {
+                        if(err) res.status(500).send(JSON.stringify({err: err}));
+                        else{
+                            res.sendStatus(200);
+                        }
+                    });
                     return;
                 default:
                     res.status(405).send(JSON.stringify({err: "Такого метода не существует"}));
