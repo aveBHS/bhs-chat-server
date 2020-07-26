@@ -7,6 +7,7 @@ const mongoClient = new MongoClient("mongodb://127.0.0.1:27017/", {
     useUnifiedTopology: true
 });
 const app = express();
+function time(){ return parseInt(new Date().getTime()/1000) }
 
 mongoClient.connect((err, client) => {
 
@@ -90,10 +91,16 @@ mongoClient.connect((err, client) => {
                         res.status(403).send(JSON.stringify({err: "Ограничение текста 8192 символа"}));
                         return;
                     }
+                    if(req.query.attacments == undefined){
+                        req.query.attacments = "";
+                    }
                     messagesDB.insertOne({
                         text: req.query.text, 
+                        attacments: req.query.attacments,
                         fromId: userId, 
-                        toId: req.query.userId
+                        toId: req.query.userId,
+                        date: time(),
+                        editDate: -1
                     }, (err, result) => {
                         if(err) res.status(500).send(JSON.stringify({err: err}));
                         else{
