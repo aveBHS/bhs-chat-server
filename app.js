@@ -1,6 +1,7 @@
 const express = require("express");
 const MongoClient = require("mongodb").MongoClient;
 const ObjectID = require('mongodb').ObjectID;
+// const WebSocketServer = require("ws");
 
 const mongoClient = new MongoClient("mongodb://127.0.0.1:27017/", {
     useNewUrlParser: true,
@@ -25,6 +26,10 @@ mongoClient.connect((err, client) => {
         res.setHeader("Content-Type", "application/json");
         try{
             usersDB.find({_id: ObjectID(req.params.id)}).toArray((err, result) => {
+                if(result.length == 0){
+                    res.status(400).send(JSON.stringify({err: "Неверный userId"}));
+                    return;
+                }
                 res.status(200).send(JSON.stringify(result[0]));
             });
         }
@@ -54,28 +59,39 @@ mongoClient.connect((err, client) => {
                         res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле userId"}));
                     }
                     else{
-                        let limit = 25;
-                        let offset = 0;
-                        if(req.query.limit != undefined){
-                            limit = +req.query.limit;
-                            if(limit <= 0){
-                                res.status(406).send(JSON.stringify({err: "Недопустимое значение поля limit"}));
-                                return;
-                            }
+                        try{
+                            usersDB.find({_id: ObjectID(req.params.id)}).toArray((err, result) => {
+                                if(result.length == 0){
+                                    res.status(400).send(JSON.stringify({err: "Неверный userId"}));
+                                    return;
+                                }
+                                let limit = 25;
+                                let offset = 0;
+                                if(req.query.limit != undefined){
+                                    limit = +req.query.limit;
+                                    if(limit <= 0){
+                                        res.status(406).send(JSON.stringify({err: "Недопустимое значение поля limit"}));
+                                        return;
+                                    }
+                                }
+                                if(req.query.offset != undefined){
+                                    offset = +req.query.offset;
+                                    if(offset <= 0){
+                                        res.status(406).send(JSON.stringify({err: "Недопустимое значение поля offset"}));
+                                        return;
+                                    }
+                                }
+                                messagesDB.find({
+                                    fromId: {$in: [userId.toString(), req.query.userId]}, 
+                                    toId: {$in: [req.query.userId, userId.toString()]}
+                                }, {_id: 0}).skip(offset).limit(limit).toArray((err, result) => {
+                                    res.send(JSON.stringify({messages: result})); 
+                                });
+                            });
                         }
-                        if(req.query.offset != undefined){
-                            offset = +req.query.offset;
-                            if(offset <= 0){
-                                res.status(406).send(JSON.stringify({err: "Недопустимое значение поля offset"}));
-                                return;
-                            }
+                        catch{
+                            res.status(400).send(JSON.stringify({err: "Неверный UserID"}));
                         }
-                        messagesDB.find({
-                            fromId: {$in: [userId.toString(), req.query.userId]}, 
-                            toId: {$in: [req.query.userId, userId.toString()]}
-                        }, {_id: 0}).skip(offset).limit(limit).toArray((err, result) => {
-                            res.send(JSON.stringify({messages: result})); 
-                        });
                     }
                     return;
                 case "send":
@@ -94,19 +110,30 @@ mongoClient.connect((err, client) => {
                     if(req.query.attacments == undefined){
                         req.query.attacments = "";
                     }
-                    messagesDB.insertOne({
-                        text: req.query.text, 
-                        attacments: req.query.attacments,
-                        fromId: userId, 
-                        toId: req.query.userId,
-                        date: time(),
-                        editDate: -1
-                    }, (err, result) => {
-                        if(err) res.status(500).send(JSON.stringify({err: err}));
-                        else{
-                            res.sendStatus(200);
-                        }
-                    });
+                    try{
+                        usersDB.find({_id: ObjectID(req.params.id)}).toArray((err, result) => {
+                            if(result.length == 0){
+                                res.status(400).send(JSON.stringify({err: "Неверный userId"}));
+                                return;
+                            }
+                            messagesDB.insertOne({
+                                text: req.query.text, 
+                                attacments: req.query.attacments,
+                                fromId: userId, 
+                                toId: req.query.userId,
+                                date: time(),
+                                editDate: -1
+                            }, (err, result) => {
+                                if(err) res.status(500).send(JSON.stringify({err: err}));
+                                else{
+                                    res.sendStatus(200);
+                                }
+                            });
+                        });
+                    }
+                    catch{
+                        res.status(400).send(JSON.stringify({err: "Неверный UserID"}));
+                    }
                     return;
                 default:
                     res.status(405).send(JSON.stringify({err: "Такого метода не существует"}));
