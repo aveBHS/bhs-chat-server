@@ -8,7 +8,7 @@ const mongoClient = new MongoClient("mongodb://127.0.0.1:27017/", {
     useUnifiedTopology: true
 });
 const app = express();
-function time(){ return parseInt(new Date().getTime()/1000) }
+function time(){ return parseInt(new Date().getTime()/1000); }
 
 mongoClient.connect((err, client) => {
 
