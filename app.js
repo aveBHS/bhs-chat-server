@@ -20,6 +20,7 @@ mongoClient.connect((err, client) => {
     app.get("/", (req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.send(JSON.stringify({"msg": "Hello, world!"}));
+        return;
     });
 
     app.get("/api/users/:id", (req, res) => {
@@ -31,10 +32,12 @@ mongoClient.connect((err, client) => {
                     return;
                 }
                 res.status(200).send(JSON.stringify(result[0]));
+                return;
             });
         }
         catch{
             res.status(400).send(JSON.stringify({err: "Неверный UserID"}));
+            return;
         }
     });
 
@@ -45,6 +48,7 @@ mongoClient.connect((err, client) => {
 
         if(req.query.token == undefined){
             res.status(403).send(JSON.stringify({err: "Требуется токен"}));
+            return;
         }
         tokensDB.find({token: req.query.token}).toArray((err, result) => {
             if(result.length == 0){
@@ -52,16 +56,24 @@ mongoClient.connect((err, client) => {
                 return;
             }
             let userId = result[0].userId;
-
+            let currentUser = null;
+            usersDB.find({_id: ObjectID(userId)}).toArray((err, user) => {
+                if(user.length == 0){
+                    res.status(400).send(JSON.stringify({err: "Арбуз)"}));
+                    return;
+                }
+                currentUser = user;
+            });
             switch(method){
                 case "get":
                     if(req.query.userId == undefined){
                         res.status(403).send(JSON.stringify({err: "Запрос должен содержать поле userId"}));
+                        return;
                     }
                     else{
                         try{
-                            usersDB.find({_id: ObjectID(req.params.id)}).toArray((err, result) => {
-                                if(result.length == 0){
+                            usersDB.find({_id: ObjectID(req.query.userId)}).toArray((err, secondUser) => {
+                                if(secondUser.length == 0){
                                     res.status(400).send(JSON.stringify({err: "Неверный userId"}));
                                     return;
                                 }
@@ -81,16 +93,26 @@ mongoClient.connect((err, client) => {
                                         return;
                                     }
                                 }
+
+                                let chatUsers = {};
+                                chatUsers[`${userId}`] = currentUser[0];
+                                chatUsers[`${req.query.userId}`] = secondUser[0];
+
                                 messagesDB.find({
                                     fromId: {$in: [userId.toString(), req.query.userId]}, 
                                     toId: {$in: [req.query.userId, userId.toString()]}
                                 }, {_id: 0}).skip(offset).limit(limit).toArray((err, result) => {
-                                    res.send(JSON.stringify({messages: result})); 
+                                    res.send(JSON.stringify({
+                                        users: chatUsers, 
+                                        messages: result
+                                    })); 
                                 });
                             });
                         }
-                        catch{
+                        catch(e){
+                            console.log(e);
                             res.status(400).send(JSON.stringify({err: "Неверный UserID"}));
+                            return;
                         }
                     }
                     return;
@@ -124,15 +146,20 @@ mongoClient.connect((err, client) => {
                                 date: time(),
                                 editDate: -1
                             }, (err, result) => {
-                                if(err) res.status(500).send(JSON.stringify({err: err}));
+                                if(err){
+                                    res.status(500).send(JSON.stringify({err: err}));
+                                    return;
+                                }
                                 else{
-                                    res.sendStatus(200);
+                                    res.sendStatus(200)
+                                    return;;
                                 }
                             });
                         });
                     }
                     catch{
                         res.status(400).send(JSON.stringify({err: "Неверный UserID"}));
+                        return;
                     }
                     return;
                 default:
